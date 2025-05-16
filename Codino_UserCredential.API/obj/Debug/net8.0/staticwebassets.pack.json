@@ -1,0 +1,25 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\ASUS\\RiderProjects\\Codino_UserCredential.API\\Codino_UserCredential.API\\wwwroot\\qrcodes\\75RJLZSP.png",
+      "PackagePath": "staticwebassets\\qrcodes\\75RJLZSP.png"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.Codino_UserCredential.API.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.build.Codino_UserCredential.API.props",
+      "PackagePath": "build\\Codino_UserCredential.API.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.Codino_UserCredential.API.props",
+      "PackagePath": "buildMultiTargeting\\Codino_UserCredential.API.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildTransitive.Codino_UserCredential.API.props",
+      "PackagePath": "buildTransitive\\Codino_UserCredential.API.props"
+    }
+  ],
+  "ElementsToRemove": []
+}
