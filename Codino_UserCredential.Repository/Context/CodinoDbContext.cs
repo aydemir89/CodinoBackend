@@ -22,9 +22,12 @@ public class CodinoDbContext : DbContext
     public DbSet<WorldMap> WorldMaps { get; set; }
     public DbSet<Biome> Biomes { get; set; }
     public DbSet<Toy> Toys { get; set; }
-    public DbSet<ProgrammingTask> Tasks { get; set; } // Task yerine ProgrammingTask kullanılıyor
+    public DbSet<ProgrammingTask> Tasks { get; set; } 
     public DbSet<TaskSubmission> TaskSubmissions { get; set; }
-    
+    public DbSet<UserToy> UserToys { get; set; }
+    public DbSet<ToyAvatar> ToyAvatars { get; set; }
+    public DbSet<ToyActivationCode> ToyActivationCodes { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -79,30 +82,25 @@ public class CodinoDbContext : DbContext
         {
             entity.ToTable("Biome", "content");
             entity.HasKey(e => e.id);
-        
+
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.WorldMapId).HasColumnName("WorldMapid").IsRequired(); // Küçük harfle 'i'
             entity.Property(e => e.BackgroundImageUrl).HasMaxLength(500);
-        
+
             entity.HasOne(d => d.WorldMapNavigation) 
                 .WithMany()
                 .HasForeignKey(d => d.WorldMapId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
         
-        // Toy tablosu konfigürasyonu
+         
         modelBuilder.Entity<Toy>(entity =>
         {
             entity.ToTable("Toy", "content");
             entity.HasKey(e => e.id);
-            
-            // Alanlar için kısıtlamalar
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.IconImageUrl).HasMaxLength(500);
-            entity.Property(e => e.Description).HasMaxLength(1000);
-            
-            // Biome ile ilişki
-            entity.HasOne<Biome>()
+        
+           
+            entity.HasOne(e => e.Biome)
                 .WithMany()
                 .HasForeignKey(e => e.BiomeId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -147,5 +145,56 @@ public class CodinoDbContext : DbContext
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+        
+        modelBuilder.Entity<UserToy>(entity =>
+        {
+            entity.ToTable("UserToy", "content");
+            entity.HasKey(e => e.id);
+    
+            entity.Property(e => e.UnlockDate).IsRequired();
+    
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        
+            entity.HasOne(e => e.Toy)
+                .WithMany()
+                .HasForeignKey(e => e.ToyId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ToyAvatar>(entity =>
+        {
+            entity.ToTable("ToyAvatar", "content");
+            entity.HasKey(e => e.id);
+    
+            entity.Property(e => e.AvatarUrl).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+    
+            entity.HasOne(e => e.Toy)
+                .WithMany()
+                .HasForeignKey(e => e.ToyId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        
+        modelBuilder.Entity<ToyActivationCode>(entity =>
+        {
+            entity.ToTable("ToyActivationCode", "content");
+            entity.HasKey(e => e.id);
+
+            entity.Property(e => e.ActivationCode).IsRequired().HasMaxLength(50);
+
+            entity.HasOne(e => e.Toy)
+                .WithMany()
+                .HasForeignKey(e => e.ToyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ActivatedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.ActivatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
     }
 }

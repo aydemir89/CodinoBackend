@@ -11,10 +11,7 @@ public class Biome : StandartModel<int>
     public int WorldMapId { get; set; }
     
     public string BackgroundImageUrl { get; set; }
-    
-    [Column("WorldMap")]
-    public int? WorldMap { get; set; } 
-    
+
     [ForeignKey("WorldMapId")]
     public virtual WorldMap WorldMapNavigation { get; set; } 
 }

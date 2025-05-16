@@ -1,5 +1,7 @@
 ﻿using System.Security.Claims;
 using Codino_UserCredential.Business.Concrete.Interfaces;
+using Codino_UserCredential.Business.Services;
+using Codino_UserCredential.Business.Validators;
 using Codino_UserCredential.Core.Dtos;
 using Codino_UserCredential.Core.Dtos.Content;
 using Codino_UserCredential.Core.Dtos.Content.Request;
@@ -10,6 +12,7 @@ using Codino_UserCredential.Repository.Models.Content;
 using Codino_UserCredential.Repository.Repositories;
 using Codino_UserCredential.Repository.Repositories.Content;
 using Codino_UserCredential.Repository.Repositories.Interfaces;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
@@ -25,13 +28,18 @@ public class ContentBusiness : IContentBusiness
     private readonly ITaskSubmissionRepository taskSubmissionRepository;
     private readonly IStringLocalizer localizer;
     private readonly IUnitOfWork<CodinoDbContext> unitOfWork;
-    
+    private readonly IToyActivationCodeRepository toyActivationCodeRepository;
+    private readonly IToyAvatarRepository toyAvatarRepository;
+    private readonly IUserToyRepository userToyRepository;
+    private readonly IUserRepository userRepository;
     private readonly IHttpContextAccessor httpContextAccessor;
     private readonly IServiceProvider serviceProvider;
-
+    private readonly QrCodeGenerationService _qrCodeGenerationService;
+    private readonly ToyActivatorValidator _toyActivatorValidator;
     public ContentBusiness(IServiceProvider serviceProvider)
     {
         this.serviceProvider = serviceProvider;
+        _qrCodeGenerationService = serviceProvider.GetService<QrCodeGenerationService>();
         localizer = serviceProvider.GetService<IStringLocalizer<ContentBusiness>>();
         worldMapRepository = serviceProvider.GetService<IWorldMapRepository>();
         biomeRepository = serviceProvider.GetService<IBiomeRepository>();
@@ -39,7 +47,12 @@ public class ContentBusiness : IContentBusiness
         taskRepository = serviceProvider.GetService<ITaskRepository>();
         taskSubmissionRepository = serviceProvider.GetService<ITaskSubmissionRepository>();
         unitOfWork = serviceProvider.GetService<IUnitOfWork<CodinoDbContext>>();
-        httpContextAccessor = serviceProvider.GetService<IHttpContextAccessor>();
+        httpContextAccessor = serviceProvider.GetService<IHttpContextAccessor>(); 
+        toyActivationCodeRepository = serviceProvider.GetService<IToyActivationCodeRepository>();
+        toyAvatarRepository = serviceProvider.GetService<IToyAvatarRepository>();
+        userToyRepository = serviceProvider.GetService<IUserToyRepository>();
+        userRepository = serviceProvider.GetService<IUserRepository>();
+        _toyActivatorValidator = serviceProvider.GetService<ToyActivatorValidator>();
     }
     
     public WorldMapResponse GetWorldMap()
@@ -255,7 +268,6 @@ public class ContentBusiness : IContentBusiness
             
             bool isCorrect = IsCodeCorrect(request.SubmittedCode, task.ExpectedPattern);
             
-            // Gönderimi kaydet
             var submission = new TaskSubmission
             {
                 UserId = request.UserId,
@@ -291,7 +303,6 @@ public class ContentBusiness : IContentBusiness
         return submittedCode.Contains(expectedPattern);
     }
     
-    // İçerik yönetimi için CRUD metodları
     public ApiResponse CreateWorldMap(WorldMapCreateRequest request)
     {
         var response = new ApiResponse();
@@ -601,12 +612,12 @@ public class ContentBusiness : IContentBusiness
             var newToy = new Toy
             {
                 Name = request.Name,
-                BiomeId = request.BiomeId,
+                BiomeId = request.BiomeId, 
                 IconImageUrl = request.IconImageUrl,
                 Description = request.Description,
                 StatusId = Status.Valid,
                 creaDateTime = DateTime.UtcNow,
-                CreaUserId = 1 // Aktif kullanıcı ID'si alınmalı
+                CreaUserId = GetCurrentUserId() 
             };
             
             toyRepository.Insert(newToy);
@@ -1004,6 +1015,411 @@ public class ContentBusiness : IContentBusiness
             response.Message = ex.Message;
         }
         
+        return response;
+    }
+
+    public async Task<ToyActivationResponse> ActivateToyAsync(ActivateToyRequest request)
+    {
+        var validationResult = _toyActivatorValidator.ValidateActivateToyRequest(request);
+        if (validationResult.Code != (int)ResponseCode.Success)
+        {
+            return new ToyActivationResponse
+            {
+                Code = validationResult.Code,
+                Message = validationResult.Message
+            };
+        }
+        
+        var response = new ToyActivationResponse();
+        try
+        {
+            var user = await Task.Run(() => userRepository.GetById(request.UserId));
+            if (user == null || user.StatusId != Status.Valid)
+            {
+                response.Code = (int)ResponseCode.Error;
+                response.Message = localizer.GetString("UserNotFound");
+                return response;
+            }
+
+            var activationCode = await Task.Run((() =>
+                toyActivationCodeRepository
+                    .GetQuery(tac => tac.ActivationCode == request.ActivationCode && tac.StatusId == Status.Valid)
+                    .FirstOrDefault()));
+            if (activationCode == null)
+            {
+                response.Code = (int)ResponseCode.Error;
+                response.Message = localizer.GetString("InvalidActivationCode");
+                return response;
+            }
+            var toy = await Task.Run(() => toyRepository.GetById(activationCode.ToyId));
+        
+            if (toy == null || toy.StatusId != Status.Valid)
+            {
+                response.Code = (int)ResponseCode.Error;
+                response.Message = localizer.GetString("ToyNotFound");
+                return response;
+            }
+            if (activationCode.IsActivated)
+            {
+                if (activationCode.ActivatedByUserId == request.UserId)
+                {
+                    response.Code = (int)ResponseCode.Success;
+                    response.Message = localizer.GetString("ToyAlreadyActivatedByYou");
+                    response.ToyId = toy.id;
+                    response.ToyName = toy.Name;
+                    response.ToyImageUrl = toy.IconImageUrl;
+                    response.ActivationCode = activationCode.ActivationCode;
+                    response.IsNewlyActivated = false;
+                
+                    var toyAvatars = await Task.Run(() => 
+                        toyAvatarRepository.GetQuery(ta => 
+                                ta.ToyId == toy.id && 
+                                ta.StatusId == Status.Valid)
+                            .ToList());
+                
+                    foreach (var avatar in toyAvatars)
+                    {
+                        response.UnlockedAvatars.Add(new ToyAvatarDto
+                        {
+                            Id = avatar.id,
+                            Name = avatar.Name,
+                            AvatarUrl = avatar.AvatarUrl,
+                            RequiredToyLevel = avatar.RequiredToyLevel,
+                            RequiredUserXp = avatar.RequiredUserXp
+                        });
+                    }
+                
+                    return response;
+                }
+                else
+                {
+                    response.Code = (int)ResponseCode.Error;
+                    response.Message = localizer.GetString("ActivationCodeAlreadyUsed");
+                    return response;
+                }
+            }
+
+            activationCode.IsActivated = true;
+            activationCode.ActivatedByUserId = request.UserId;
+            activationCode.ActivationDate = DateTime.UtcNow;
+            await Task.Run(() => toyActivationCodeRepository.Update(activationCode));
+
+            var userToy = new UserToy
+            {
+                UserId = request.UserId,
+                ToyId = activationCode.ToyId,
+                UnlockDate = DateTime.UtcNow,
+                StatusId = Status.Valid,
+                creaDateTime = DateTime.UtcNow,
+                CreaUserId = request.UserId
+            };
+            await Task.Run((() => userToyRepository.Insert(userToy)));
+            await Task.Run((() => unitOfWork.SaveChanges()));
+            
+            response.Code = (int)ResponseCode.Success;
+            response.Message = localizer.GetString("ToyActivatedSuccessfully");
+            response.ToyId = toy.id;
+            response.ToyName = toy.Name;
+            response.ToyImageUrl = toy.IconImageUrl;
+            response.ActivationCode = activationCode.ActivationCode;
+            response.IsNewlyActivated = true;
+            
+            var unlockedAvatars = await Task.Run(() => 
+                toyAvatarRepository.GetQuery(ta => 
+                        ta.ToyId == toy.id && 
+                        ta.StatusId == Status.Valid)
+                    .ToList());
+        
+            foreach (var avatar in unlockedAvatars)
+            {
+                response.UnlockedAvatars.Add(new ToyAvatarDto
+                {
+                    Id = avatar.id,
+                    Name = avatar.Name,
+                    AvatarUrl = avatar.AvatarUrl,
+                    RequiredToyLevel = avatar.RequiredToyLevel,
+                    RequiredUserXp = avatar.RequiredUserXp
+                });
+            }
+        }
+        catch (Exception e)
+        {
+            response.Code = (int)ResponseCode.Error;
+            response.Message = e.Message;
+        }
+
+        return response;
+    }
+
+    public async Task<IEnumerable<ToyActivationCodeResponse>> GenerateActivationCodesAsync(GenerateActivationCodesRequest request)
+    {
+        var response = new List<ToyActivationCodeResponse>();
+        try
+        {
+            var toy = await Task.Run((() => toyRepository.GetByIdAsync(request.ToyId)));
+            if (toy == null || toy.StatusId != Status.Valid)
+            {
+                var errorResponse = new ToyActivationCodeResponse
+                {
+                    Code = (int)ResponseCode.Error,
+                    Message = localizer.GetString("ToyNotFound")
+                };
+                response.Add(errorResponse);
+                return response;
+            }
+
+            for (int i = 0; i < request.Count; i++)
+            {
+                string activationCode = await _qrCodeGenerationService.GenerateUniqueActivationCodeAsync();
+                    //await GenerateUniqueActivationCodeAsync();
+                
+                var newActivationCode = new ToyActivationCode
+                {
+                    ActivationCode = activationCode,
+                    ToyId = request.ToyId,
+                    IsActivated = false,
+                    StatusId = Status.Valid,
+                    creaDateTime = DateTime.UtcNow,
+                    CreaUserId = GetCurrentUserId()
+                };
+                await Task.Run(() => toyActivationCodeRepository.InsertAsync(newActivationCode));
+                var qrImageUrl = await _qrCodeGenerationService.GenerateQrCodeImageAsync(
+                    $"https://codino.com/activate?code={activationCode}",
+                    activationCode
+                );
+                response.Add(new ToyActivationCodeResponse
+                {
+                    Id = newActivationCode.id,
+                    ToyId = toy.id,
+                    ToyName = toy.Name,
+                    ToyImageUrl = toy.IconImageUrl,
+                    ActivationCode = activationCode,
+                    QrCodeImageUrl = qrImageUrl,
+                    ExpirationDate = request.ExpirationDate,
+                    IsActive = true,
+                    Code = (int)ResponseCode.Success,
+                    Message = localizer.GetString("ActivationCodeGeneratedSuccessfully")
+                });
+            }
+
+            await Task.Run((() => unitOfWork.SaveChangesAsync()));
+        }
+        catch (Exception e)
+        {
+            var errorResponse = new ToyActivationCodeResponse
+            {
+                Code = (int)ResponseCode.Error,
+                Message = e.Message
+            };
+            response.Add(errorResponse);
+        }
+
+        return response;
+    }
+
+    /*private async Task<string> GenerateUniqueActivationCodeAsync()
+    {
+        string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; 
+        Random random = new Random();
+
+        while (true)
+        {
+            char[] code = new char[8];
+            for (int i = 0; i < 8; i++)
+            {
+                code[i] = chars[random.Next(chars.Length)];
+            }
+
+            string activationCode = new string(code);
+
+            var existingCode = await Task.Run(() => toyActivationCodeRepository.GetQuery(tac =>
+                    tac.ActivationCode == activationCode &&
+                    tac.StatusId == Status.Valid)
+                .FirstOrDefault());
+
+            if (existingCode == null)
+            {
+                return activationCode;
+            }
+        }
+    }*/
+
+    public async Task<ToyActivationDetailsResponse> GetToyActivationDetailsAsync(int activationCodeId)
+    {
+        var response = new ToyActivationDetailsResponse();
+        try
+        {
+            var activationCode = await Task.Run(() => toyActivationCodeRepository.GetById(activationCodeId));
+        
+            if (activationCode == null || activationCode.StatusId != Status.Valid)
+            {
+                response.Code = (int)ResponseCode.Error;
+                response.Message = localizer.GetString("ActivationCodeNotFound");
+                return response;
+            }
+            var toy = await Task.Run(() => toyRepository.GetById(activationCode.ToyId));
+        
+            if (toy == null || toy.StatusId != Status.Valid)
+            {
+                response.Code = (int)ResponseCode.Error;
+                response.Message = localizer.GetString("ToyNotFound");
+                return response;
+            }
+            response.Id = activationCode.id;
+            response.ActivationCode = activationCode.ActivationCode;
+            response.CreationDate = activationCode.creaDateTime;
+            
+            response.ToyId = toy.id;
+            response.ToyName = toy.Name;
+            response.ToyDescription = toy.Description;
+            response.ToyImageUrl = toy.IconImageUrl;
+            
+            response.IsActivated = activationCode.IsActivated;
+            response.ActivationDate = activationCode.ActivationDate;
+            if (activationCode.IsActivated && activationCode.ActivatedByUserId.HasValue)
+            {
+                var user = await Task.Run(() => userRepository.GetById(activationCode.ActivatedByUserId.Value));
+            
+                if (user != null)
+                {
+                    response.UserInfo = new UserActivationInfoDto
+                    {
+                        UserId = user.id,
+                        FullName = $"{user.Name} {user.Surname}",
+                        Email = user.Email,
+                        RegistrationDate = user.creaDateTime,
+                        Level = user.Level,
+                        Xp = user.Xp,
+                        CurrentAvatarUrl = user.AvatarImage
+                    };
+                }
+            }
+            var avatars = await Task.Run(() => toyAvatarRepository.GetQuery(ta => 
+                    ta.ToyId == toy.id && 
+                    ta.StatusId == Status.Valid)
+                .ToList());
+        
+            foreach (var avatar in avatars)
+            {
+                response.Avatars.Add(new ToyAvatarDto
+                {
+                    Id = avatar.id,
+                    Name = avatar.Name,
+                    AvatarUrl = avatar.AvatarUrl,
+                    RequiredToyLevel = avatar.RequiredToyLevel,
+                    RequiredUserXp = avatar.RequiredUserXp
+                });
+            }
+        
+            response.Code = (int)ResponseCode.Success;
+            response.Message = localizer.GetString("Success");
+        }
+        catch (Exception e)
+        {
+            response.Code = (int)ResponseCode.Error;
+            response.Message = e.Message;
+        }
+
+        return response;
+    }
+
+    public async Task<IEnumerable<ToyActivationSummaryResponse>> GetToyActivationSummaryAsync(int toyId)
+    {
+        var response = new List<ToyActivationSummaryResponse>();
+        try
+        {
+            var toy = await Task.Run(() => toyRepository.GetById(toyId));
+        
+            if (toy == null || toy.StatusId != Status.Valid)
+            {
+                var errorResponse = new ToyActivationSummaryResponse
+                {
+                    Code = (int)ResponseCode.Error,
+                    Message = localizer.GetString("ToyNotFound")
+                };
+                response.Add(errorResponse);
+                return response;
+            }
+            var activationCodes = await Task.Run(() => toyActivationCodeRepository.GetQuery(tac => 
+                    tac.ToyId == toyId && 
+                    tac.StatusId == Status.Valid)
+                .ToList());
+        
+            var now = DateTime.UtcNow;
+            var last24Hours = now.AddDays(-1);
+            var last7Days = now.AddDays(-7);
+            var last30Days = now.AddDays(-30);
+            
+            var totalCodes = activationCodes.Count;
+            var activatedCodes = activationCodes.Count(ac => ac.IsActivated);
+            var activationsLast24Hours = activationCodes.Count(ac => 
+                ac.IsActivated && 
+                ac.ActivationDate.HasValue && 
+                ac.ActivationDate.Value >= last24Hours);
+        
+            var activationsLast7Days = activationCodes.Count(ac => 
+                ac.IsActivated && 
+                ac.ActivationDate.HasValue && 
+                ac.ActivationDate.Value >= last7Days);
+        
+            var activationsLast30Days = activationCodes.Count(ac => 
+                ac.IsActivated && 
+                ac.ActivationDate.HasValue && 
+                ac.ActivationDate.Value >= last30Days);
+        
+            var recentActivations = activationCodes
+                .Where(ac => ac.IsActivated && ac.ActivationDate.HasValue)
+                .OrderByDescending(ac => ac.ActivationDate)
+                .Take(10)
+                .ToList();
+        
+            var recentActivationDtos = new List<RecentActivationDto>();
+        
+            foreach (var activation in recentActivations)
+            {
+                var user = await Task.Run(() => 
+                    userRepository.GetById(activation.ActivatedByUserId ?? 0));
+            
+                if (user != null)
+                {
+                    recentActivationDtos.Add(new RecentActivationDto
+                    {
+                        Id = activation.id,
+                        ActivationCode = activation.ActivationCode,
+                        UserId = user.id,
+                        UserName = $"{user.Name} {user.Surname}",
+                        ActivationDate = activation.ActivationDate.Value
+                    });
+                }
+            }
+            var activationSummary = new ToyActivationSummaryResponse
+            {
+                ToyId = toy.id,
+                ToyName = toy.Name,
+                TotalActivationCodes = totalCodes,
+                ActiveCodesCount = totalCodes - activatedCodes,
+                ActivatedCodesCount = activatedCodes,
+                ExpiredCodesCount = 0, 
+                ActivationsLast24Hours = activationsLast24Hours,
+                ActivationsLast7Days = activationsLast7Days,
+                ActivationsLast30Days = activationsLast30Days,
+                RecentActivations = recentActivationDtos,
+                Code = (int)ResponseCode.Success,
+                Message = localizer.GetString("Success")
+            };
+        
+            response.Add(activationSummary);
+        }
+        catch (Exception e)
+        {
+            var errorResponse = new ToyActivationSummaryResponse
+            {
+                Code = (int)ResponseCode.Error,
+                Message = e.Message
+            };
+            response.Add(errorResponse);
+        }
+
         return response;
     }
 }

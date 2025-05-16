@@ -1,8 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "pm42vD5xhLE=",
+  "dgSpecHash": "N/DCLiGm4Yk=",
   "success": true,
   "projectFilePath": "C:\\Users\\ASUS\\RiderProjects\\Codino_UserCredential.API\\Codino_UserCredential.Entities\\Codino_UserCredential.Entities.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\ASUS\\.nuget\\packages\\qrcoder\\1.6.0\\qrcoder.1.6.0.nupkg.sha512"
+  ],
   "logs": []
 }

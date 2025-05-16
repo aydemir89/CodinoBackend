@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Codino_UserCredential.Business")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+15f42bad5e034e58f7b11776ae558748d1aee4f9")]
 [assembly: System.Reflection.AssemblyProductAttribute("Codino_UserCredential.Business")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Codino_UserCredential.Business")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

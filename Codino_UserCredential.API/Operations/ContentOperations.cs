@@ -138,4 +138,31 @@ public class ContentOperations : IContentOperations
     {
         return contentBusiness.GetToyTaskStatus(userId, toyId);
     }
+
+    public async Task<IEnumerable<ToyActivationCodeResponse>> GenerateActivationCodesAsync(GenerateActivationCodesRequest request)
+    {
+        return await contentBusiness.GenerateActivationCodesAsync(request);
+    }
+
+    public async Task<ToyActivationDetailsResponse> GetToyActivationDetailsAsync(int activationCodeId)
+    {
+        return await contentBusiness.GetToyActivationDetailsAsync(activationCodeId);
+    }
+
+    public async Task<IEnumerable<ToyActivationSummaryResponse>> GetActivationStatisticsAsync(int? toyId = null)
+    {
+        if (toyId.HasValue)
+            return await contentBusiness.GetToyActivationSummaryAsync(toyId.Value);
+    
+        var toys = contentBusiness.GetAllToys();
+        var result = new List<ToyActivationSummaryResponse>();
+    
+        foreach (var toy in toys)
+        {
+            var summary = await contentBusiness.GetToyActivationSummaryAsync(toy.ToyId);
+            result.AddRange(summary);
+        }
+
+        return result;
+    }
 }

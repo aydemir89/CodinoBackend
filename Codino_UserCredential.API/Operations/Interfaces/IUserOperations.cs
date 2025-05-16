@@ -1,4 +1,6 @@
 ﻿using Codino_UserCredential.Core.Dtos;
+using Codino_UserCredential.Core.Dtos.Content.Request;
+using Codino_UserCredential.Core.Dtos.Content.Response;
 using Codino_UserCredential.Repository.Repositories;
 using Codino.UserCredential.Core.DTOs;
 
@@ -13,4 +15,11 @@ public interface IUserOperations
     ApiResponse SetAvatar(SetAvatarRequest request);
 
     ApiResponse GetAvatar(int userId);
+    
+    GetAvailableAvatarsResponse GetAvailableAvatars(GetAvailableAvatarsRequest request);
+    ApiResponse SetUserAvatar(SetUserAvatarRequest request);
+    
+    Task<ToyActivationResponse> ActivateToyAsync(ActivateToyRequest request);
+    Task<UserToysResponse> GetUserToysAsync(int userId);
+
 }

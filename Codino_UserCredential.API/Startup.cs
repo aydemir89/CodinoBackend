@@ -3,6 +3,8 @@ using Codino_UserCredential.API.Operations;
 using Codino_UserCredential.API.Operations.Interfaces;
 using Codino_UserCredential.Business.Concrete;
 using Codino_UserCredential.Business.Concrete.Interfaces;
+using Codino_UserCredential.Business.Services;
+using Codino_UserCredential.Business.Validators;
 using Codino_UserCredential.Core.Functions;
 using Codino_UserCredential.Repository.Context;
 using Codino_UserCredential.Repository.Models;
@@ -41,7 +43,15 @@ public class Startup
         services.AddScoped<IToyRepository, ToyRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();
         services.AddScoped<ITaskSubmissionRepository, TaskSubmissionRepository>();
+        services.AddScoped<IUserToyRepository, UserToyRepository>();
+        services.AddScoped<IToyAvatarRepository, ToyAvatarRepository>();
+        services.AddScoped<QrCodeGenerationService>();
+        services.AddScoped<NotificationService>();
+        services.AddScoped<ToyActivatorValidator>();
+        services.AddScoped<UserValidator>();
+        services.AddScoped<IToyActivationCodeRepository, ToyActivationCodeRepository>();
 
+        
         // Business kayıtları
         services.AddScoped<IUserBusiness, UserBusiness>();
         services.AddScoped<IContentBusiness, ContentBusiness>();

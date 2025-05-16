@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "Z+qJZUc/i20=",
+  "dgSpecHash": "8EIyI4AmwH4=",
   "success": true,
   "projectFilePath": "C:\\Users\\ASUS\\RiderProjects\\Codino_UserCredential.API\\Codino_UserCredential.Business\\Codino_UserCredential.Business.csproj",
   "expectedPackageFiles": [
@@ -52,6 +52,7 @@
     "C:\\Users\\ASUS\\.nuget\\packages\\nobisoft.core.httpcontextaccessor\\1.0.7.1\\nobisoft.core.httpcontextaccessor.1.0.7.1.nupkg.sha512",
     "C:\\Users\\ASUS\\.nuget\\packages\\npgsql\\9.0.3\\npgsql.9.0.3.nupkg.sha512",
     "C:\\Users\\ASUS\\.nuget\\packages\\npgsql.entityframeworkcore.postgresql\\9.0.4\\npgsql.entityframeworkcore.postgresql.9.0.4.nupkg.sha512",
+    "C:\\Users\\ASUS\\.nuget\\packages\\qrcoder\\1.6.0\\qrcoder.1.6.0.nupkg.sha512",
     "C:\\Users\\ASUS\\.nuget\\packages\\runtime.debian.8-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.debian.8-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
     "C:\\Users\\ASUS\\.nuget\\packages\\runtime.fedora.23-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.fedora.23-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",
     "C:\\Users\\ASUS\\.nuget\\packages\\runtime.fedora.24-x64.runtime.native.system.security.cryptography.openssl\\4.3.0\\runtime.fedora.24-x64.runtime.native.system.security.cryptography.openssl.4.3.0.nupkg.sha512",

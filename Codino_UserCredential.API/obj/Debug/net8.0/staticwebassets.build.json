@@ -1,11 +1,39 @@
 {
   "Version": 1,
-  "Hash": "QIeYNpQ5wIMQ15Ib6MpJUPw1eQ/eqCu0Q1SVIsHgVJw=",
+  "Hash": "6GVqOxOT9mmqXUVGtNBCcN64yORznHmWxbYftLjDT24=",
   "Source": "Codino_UserCredential.API",
   "BasePath": "_content/Codino_UserCredential.API",
   "Mode": "Default",
   "ManifestType": "Build",
   "ReferencedProjectsConfiguration": [],
-  "DiscoveryPatterns": [],
-  "Assets": []
+  "DiscoveryPatterns": [
+    {
+      "Name": "Codino_UserCredential.API\\wwwroot",
+      "Source": "Codino_UserCredential.API",
+      "ContentRoot": "C:\\Users\\ASUS\\RiderProjects\\Codino_UserCredential.API\\Codino_UserCredential.API\\wwwroot\\",
+      "BasePath": "_content/Codino_UserCredential.API",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "C:\\Users\\ASUS\\RiderProjects\\Codino_UserCredential.API\\Codino_UserCredential.API\\wwwroot\\qrcodes\\75RJLZSP.png",
+      "SourceId": "Codino_UserCredential.API",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\ASUS\\RiderProjects\\Codino_UserCredential.API\\Codino_UserCredential.API\\wwwroot\\",
+      "BasePath": "_content/Codino_UserCredential.API",
+      "RelativePath": "qrcodes/75RJLZSP.png",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\qrcodes\\75RJLZSP.png"
+    }
+  ]
 }

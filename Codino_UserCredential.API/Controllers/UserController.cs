@@ -1,5 +1,6 @@
 ﻿using Codino_UserCredential.API.Operations.Interfaces;
 using Codino_UserCredential.Core.Dtos;
+using Codino_UserCredential.Core.Dtos.Content.Request;
 using Codino_UserCredential.Core.Extentions;
 using Codino.UserCredential.Core.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -45,6 +46,35 @@ public class UserController : ControllerBase
     public IActionResult GetAvatar(int userId)
     {
         var result = _userOperations.GetAvatar(userId);
+        return Ok(result);
+    }
+    
+    [HttpGet("available-avatars")]
+    public IActionResult GetAvailableAvatars([FromQuery] GetAvailableAvatarsRequest request)
+    {
+        var result = _userOperations.GetAvailableAvatars(request);
+        return Ok(result);
+    }
+
+    [HttpPost("set-avatar-by-id")]
+    public IActionResult SetUserAvatar([FromBody] SetUserAvatarRequest request)
+    {
+        var result = _userOperations.SetUserAvatar(request);
+        return Ok(result);
+    }
+    [Authorize]
+    [HttpPost("activate-toy")]
+    public async Task<IActionResult> ActivateToy([FromBody] ActivateToyRequest request)
+    {
+        var result = await _userOperations.ActivateToyAsync(request);
+        return Ok(result);
+    }
+    
+    [Authorize]
+    [HttpGet("my-toys")]
+    public async Task<IActionResult> GetUserToys([FromQuery] int userId)
+    {
+        var result = await _userOperations.GetUserToysAsync(userId);
         return Ok(result);
     }
     

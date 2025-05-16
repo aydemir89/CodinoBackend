@@ -134,4 +134,19 @@ public class AdminController : ControllerBase
         var result = contentOperations.DeleteTask(id);
         return Ok(result);
     }
+    
+    [HttpPost("GenerateActivationCodes")]
+    public async Task<IActionResult> GenerateActivationCodes([FromBody] GenerateActivationCodesRequest request)
+    {
+        var result = await contentOperations.GenerateActivationCodesAsync(request);
+        return Ok(result);
+    }
+    
+    
+    [HttpGet("ActivationStatistics")]
+    public async Task<IActionResult> GetActivationStatistics([FromQuery] int? toyId = null)
+    {
+        var result = await contentOperations.GetActivationStatisticsAsync(toyId);
+        return Ok(result);
+    }
 }

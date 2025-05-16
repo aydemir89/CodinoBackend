@@ -15,7 +15,6 @@ public interface IContentOperations
     TasksResponse GetTasks(int toyId);
     TaskSubmissionResponse SubmitTask(TaskSubmissionRequest request);
     
-    // İçerik yönetimi için CRUD metodları
     ApiResponse CreateWorldMap(WorldMapCreateRequest request);
     ApiResponse UpdateWorldMap(int id, WorldMapCreateRequest request);
     ApiResponse DeleteWorldMap(int id);
@@ -38,7 +37,11 @@ public interface IContentOperations
     List<ToyResponse> GetAllToys();
     List<TaskDto> GetAllTasks();
     
-    // Kullanıcı görev takibi metodları
     TaskSubmissionsResponse GetTaskSubmissions(int userId, int taskId);
     ToyTaskStatusResponse GetToyTaskStatus(int userId, int toyId);
+    
+    Task<IEnumerable<ToyActivationCodeResponse>> GenerateActivationCodesAsync(GenerateActivationCodesRequest request);
+    Task<ToyActivationDetailsResponse> GetToyActivationDetailsAsync(int activationCodeId);
+    Task<IEnumerable<ToyActivationSummaryResponse>> GetActivationStatisticsAsync(int? toyId = null);
+
 }

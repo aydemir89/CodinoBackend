@@ -2,6 +2,8 @@
 using Codino_UserCredential.Business.Concrete;
 using Codino_UserCredential.Business.Concrete.Interfaces;
 using Codino_UserCredential.Core.Dtos;
+using Codino_UserCredential.Core.Dtos.Content.Request;
+using Codino_UserCredential.Core.Dtos.Content.Response;
 using Codino_UserCredential.Repository.Repositories;
 using Codino.UserCredential.Core.DTOs;
 
@@ -33,5 +35,24 @@ public class UserOperations : IUserOperations
     public ApiResponse GetAvatar(int userId)
     {
         return userBusiness.GetAvatar(userId);
+    }
+    
+    public GetAvailableAvatarsResponse GetAvailableAvatars(GetAvailableAvatarsRequest request)
+    {
+        return userBusiness.GetAvailableAvatars(request);
+    }
+
+    public ApiResponse SetUserAvatar(SetUserAvatarRequest request)
+    {
+        return userBusiness.SetUserAvatar(request);
+    }
+
+    public async Task<ToyActivationResponse> ActivateToyAsync(ActivateToyRequest request)
+    {
+        return await userBusiness.ActivateToyAsync(request);
+    }
+    public async Task<UserToysResponse> GetUserToysAsync(int userId)
+    {
+        return await userBusiness.GetUserToysAsync(userId);
     }
 }

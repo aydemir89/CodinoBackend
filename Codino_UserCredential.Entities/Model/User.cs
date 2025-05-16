@@ -14,7 +14,7 @@ public class User
 
     public int Xp { get; set; } = 0;
 
-    public string? MascotImageUrl { get; set; }
+    public int ActiveAvatarId { get; set; } // Aktif avatar ID'si
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

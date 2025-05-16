@@ -22,4 +22,8 @@ public class User : StandartModel<int>
     public DateTime? BirthDate { get; set; }
     public bool hasRoboticModels { get; set; }
     public string? AvatarImage { get; set; }
+    
+    public int Level { get; set; } = 1;
+    public int Xp { get; set; } = 0;
+    public int ActiveAvatarId { get; set; } = 0;
 }

@@ -3,6 +3,9 @@ using System.Security.Claims;
 using System.Text;
 using Codino_UserCredential.Business.Concrete.Interfaces;
 using Codino_UserCredential.Core.Dtos;
+using Codino_UserCredential.Core.Dtos.Content.Request;
+using Codino_UserCredential.Core.Dtos.Content.Response;
+using Codino_UserCredential.Core.Dtos.UserCredential;
 using Codino_UserCredential.Core.Enums;
 using Codino_UserCredential.Core.Functions;
 using Codino_UserCredential.Core.Security.Hashing;
@@ -26,7 +29,10 @@ public class UserBusiness : IUserBusiness
     private readonly IUserLoginRequestRepository userLoginRequestRepository;
     private readonly IConfiguration configuration;
     private readonly IUnitOfWork<CodinoDbContext> unitOfWork;
-    
+    private readonly IToyAvatarRepository toyAvatarRepository;
+    private readonly IUserToyRepository userToyRepository;
+    private readonly IToyRepository toyRepository;
+    private readonly IContentBusiness _contentBusiness;
     public UserBusiness(IServiceProvider serviceProvider)
     {
         localizer = serviceProvider.GetService<IStringLocalizer<UserBusiness>>();
@@ -34,8 +40,87 @@ public class UserBusiness : IUserBusiness
         userRepository = serviceProvider.GetService<IUserRepository>();
         configuration = serviceProvider.GetService<IConfiguration>();
         unitOfWork = serviceProvider.GetService<IUnitOfWork<CodinoDbContext>>();
+        toyAvatarRepository = serviceProvider.GetService<IToyAvatarRepository>();
+        userToyRepository = serviceProvider.GetService<IUserToyRepository>();
+        toyRepository = serviceProvider.GetService<IToyRepository>();
+        _contentBusiness = serviceProvider.GetService<IContentBusiness>();
+
     }
-    
+    public async Task<ToyActivationResponse> ActivateToyAsync(ActivateToyRequest request)
+    {
+        return await _contentBusiness.ActivateToyAsync(request);
+    }
+    public async Task<UserToysResponse> GetUserToysAsync(int userId)
+    {
+        var response = new UserToysResponse();
+        
+        try
+        {
+            var user = await Task.Run(() => userRepository.GetById(userId));
+            
+            if (user == null || user.StatusId != Status.Valid)
+            {
+                response.Code = (int)ResponseCode.Error;
+                response.Message = localizer.GetString("UserNotFound");
+                return response;
+            }
+            
+            var userToys = await Task.Run(() => userToyRepository.GetQuery(ut => 
+                ut.UserId == userId && 
+                ut.StatusId == Status.Valid)
+                .ToList());
+            
+            response.UserId = userId;
+            response.UserName = $"{user.Name} {user.Surname}";
+            
+            foreach (var userToy in userToys)
+            {
+                var toy = await Task.Run(() => toyRepository.GetById(userToy.ToyId));
+                
+                if (toy == null || toy.StatusId != Status.Valid)
+                    continue;
+                
+                var userToyDto = new UserToyDto
+                {
+                    Id = userToy.id,
+                    ToyId = toy.id,
+                    ToyName = toy.Name,
+                    ToyDescription = toy.Description,
+                    ToyImageUrl = toy.IconImageUrl,
+                    UnlockDate = userToy.UnlockDate
+                };
+                
+                var toyAvatars = await Task.Run(() => toyAvatarRepository.GetQuery(ta =>
+                    ta.ToyId == toy.id &&
+                    ta.StatusId == Status.Valid)
+                    .ToList());
+                
+                foreach (var avatar in toyAvatars)
+                {
+                    userToyDto.AvailableAvatars.Add(new ToyAvatarDto
+                    {
+                        Id = avatar.id,
+                        Name = avatar.Name,
+                        AvatarUrl = avatar.AvatarUrl,
+                        RequiredToyLevel = avatar.RequiredToyLevel,
+                        RequiredUserXp = avatar.RequiredUserXp
+                    });
+                }
+                
+                response.Toys.Add(userToyDto);
+            }
+            
+            response.Code = (int)ResponseCode.Success;
+            response.Message = localizer.GetString("Success");
+        }
+        catch (Exception ex)
+        {
+            response.Code = (int)ResponseCode.Error;
+            response.Message = ex.Message;
+        }
+        
+        return response;
+    }
     public LoginResponse Login(LoginRequest request)
     {
         var response = new LoginResponse();
@@ -285,28 +370,7 @@ public class UserBusiness : IUserBusiness
 
         return response;
     }
-
-    public ApiResponse GetAvatar(int userId)
-    {
-        var response = new GetAvatarResponse();
-
-        var user = userRepository.GetQuery(u => u.id == userId && u.StatusId == Status.Valid).FirstOrDefault();
-        if (user == null)
-        {
-            response.Code = (int)ResponseCode.Error;
-            response.Message = localizer.GetString("UserNotFound");
-            response.AvatarUrl = ""; // boş döndür
-            return response;
-        }
-
-        response.Code = (int)ResponseCode.Success;
-        response.Message = localizer.GetString("AvatarRetrieved");
-        response.AvatarUrl = string.IsNullOrWhiteSpace(user.AvatarImage) 
-            ? "https://cdn.codino.com/default-avatar.png" 
-            : user.AvatarImage;
-
-        return response;    }
-
+    
     public ApiResponse RegisterRequestValidation(UserRegisterRequestDto registerRequest)
     {
         var response = new ApiResponse();
@@ -375,6 +439,188 @@ public class UserBusiness : IUserBusiness
             }
             unitOfWork.SaveChanges();
         }
+    }
+    
+    public GetAvailableAvatarsResponse GetAvailableAvatars(GetAvailableAvatarsRequest request)
+    {
+        var response = new GetAvailableAvatarsResponse();
+        
+        try
+        {
+            var user = userRepository.GetById(request.UserId);
+            
+            if (user == null || user.StatusId != Status.Valid)
+            {
+                response.Code = (int)ResponseCode.Error;
+                response.Message = localizer.GetString("UserNotFound");
+                return response;
+            }
+            
+            // Kullanıcının sahip olduğu oyuncakları bul
+            var userToys = userToyRepository.GetQuery(ut => ut.UserId == request.UserId && ut.StatusId == Status.Valid)
+                .Select(ut => ut.ToyId)
+                .ToList();
+            
+            // Kullanıcının aktif avatarını al
+            var activeAvatarId = user.ActiveAvatarId;
+            
+            // Tüm avatarları al
+            var allAvatars = toyAvatarRepository.GetQuery(ta => ta.StatusId == Status.Valid).ToList();
+            
+            // Kullanıcının sahip olduğu oyuncaklara ait avatarları filtrele
+            var availableAvatars = allAvatars.Where(a => userToys.Contains(a.ToyId) || a.RequiredUserXp <= user.Xp).ToList();
+            
+            // DTO'ları hazırla
+            foreach (var avatar in availableAvatars)
+            {
+                var toy = toyRepository.GetById(avatar.ToyId);
+                
+                response.Avatars.Add(new AvatarDto
+                {
+                    Id = avatar.id,
+                    Name = avatar.Name,
+                    AvatarUrl = avatar.AvatarUrl,
+                    ToyId = avatar.ToyId,
+                    ToyName = toy?.Name ?? "Unknown",
+                    IsUnlocked = userToys.Contains(avatar.ToyId) || avatar.RequiredUserXp <= user.Xp,
+                    IsActive = avatar.id == activeAvatarId,
+                    RequiredXp = avatar.RequiredUserXp
+                });
+            }
+            
+            // XP gereksinimine göre kilidi açılabilecek avatarları ekle
+            var lockedAvatars = allAvatars
+                .Where(a => !userToys.Contains(a.ToyId) && a.RequiredUserXp > user.Xp)
+                .OrderBy(a => a.RequiredUserXp)
+                .Take(5) // Kullanıcıya 5 gelecek avatar göster
+                .ToList();
+            
+            foreach (var avatar in lockedAvatars)
+            {
+                var toy = toyRepository.GetById(avatar.ToyId);
+                
+                response.Avatars.Add(new AvatarDto
+                {
+                    Id = avatar.id,
+                    Name = avatar.Name,
+                    AvatarUrl = avatar.AvatarUrl,
+                    ToyId = avatar.ToyId,
+                    ToyName = toy?.Name ?? "Unknown",
+                    IsUnlocked = false,
+                    IsActive = false,
+                    RequiredXp = avatar.RequiredUserXp
+                });
+            }
+            
+            response.Code = (int)ResponseCode.Success;
+            response.Message = localizer.GetString("Success");
+        }
+        catch (Exception ex)
+        {
+            response.Code = (int)ResponseCode.Error;
+            response.Message = ex.Message;
+        }
+        
+        return response;
+    }
+    
+    public ApiResponse SetUserAvatar(SetUserAvatarRequest request)
+    {
+        var response = new ApiResponse();
+    
+        try
+        {
+            var user = userRepository.GetById(request.UserId);
+        
+            if (user == null || user.StatusId != Status.Valid)
+            {
+                response.Code = (int)ResponseCode.Error;
+                response.Message = localizer.GetString("UserNotFound");
+                return response;
+            }
+        
+            var avatar = toyAvatarRepository.GetById(request.AvatarId);
+        
+            if (avatar == null || avatar.StatusId != Status.Valid)
+            {
+                response.Code = (int)ResponseCode.Error;
+                response.Message = localizer.GetString("AvatarNotFound");
+                return response;
+            }
+        
+            // Kullanıcının bu avatarı kullanma hakkı var mı kontrol et
+            var userHasToy = userToyRepository.GetQuery(ut => 
+                    ut.UserId == request.UserId && 
+                    ut.ToyId == avatar.ToyId && 
+                    ut.StatusId == Status.Valid)
+                .Any();
+        
+            var userHasXp = user.Xp >= avatar.RequiredUserXp;
+        
+            if (!userHasToy && !userHasXp)
+            {
+                response.Code = (int)ResponseCode.Error;
+                response.Message = localizer.GetString("AvatarNotUnlocked");
+                return response;
+            }
+        
+            // Avatarı güncelle
+            user.ActiveAvatarId = request.AvatarId;
+            user.AvatarImage = avatar.AvatarUrl;
+        
+            userRepository.Update(user);
+            unitOfWork.SaveChanges();
+        
+            response.Code = (int)ResponseCode.Success;
+            response.Message = localizer.GetString("AvatarUpdated");
+        }
+        catch (Exception ex)
+        {
+            response.Code = (int)ResponseCode.Error;
+            response.Message = ex.Message;
+        }
+    
+        return response;
+    }
+
+    public ApiResponse GetAvatar(int userId)
+    {
+        var response = new GetAvatarResponse();
+
+        var user = userRepository.GetQuery(u => u.id == userId && u.StatusId == Status.Valid).FirstOrDefault();
+        if (user == null)
+        {
+            response.Code = (int)ResponseCode.Error;
+            response.Message = localizer.GetString("UserNotFound");
+            response.AvatarUrl = ""; // boş döndür
+            return response;
+        }
+
+        // Aktif avatar ID'si varsa, o avatarın URL'sini kullan
+        if (user.ActiveAvatarId > 0)
+        {
+            var avatar = toyAvatarRepository.GetById(user.ActiveAvatarId);
+            if (avatar != null && avatar.StatusId == Status.Valid)
+            {
+                response.Code = (int)ResponseCode.Success;
+                response.Message = localizer.GetString("AvatarRetrieved");
+                response.AvatarUrl = avatar.AvatarUrl;
+                response.AvatarId = avatar.id;
+                response.AvatarName = avatar.Name;
+                return response;
+            }
+        }
+
+        // Eğer aktif avatar yoksa veya bulunamazsa, AvatarImage'i kullan
+        response.Code = (int)ResponseCode.Success;
+        response.Message = localizer.GetString("AvatarRetrieved");
+        response.AvatarUrl = string.IsNullOrWhiteSpace(user.AvatarImage) 
+            ? "https://cdn.codino.com/default-avatar.png" 
+            : user.AvatarImage;
+        response.AvatarId = 0;
+        response.AvatarName = "Default";
+
+        return response;
     }
 
     private LoginResponse CreateErrorResponse(ResponseCode code, string messageKey)
